@@ -8,7 +8,7 @@
 // @grant       GM_xmlhttpRequest
 // @connect     127.0.0.1
 // @version     2026.5.26
-// @icon        https://www.javbus.com/favicon.ico
+// @icon        https://hawwk.top:8020/fucon.ico
 // ==/UserScript==
 
 (function() {
