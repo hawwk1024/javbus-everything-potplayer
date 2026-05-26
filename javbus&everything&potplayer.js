@@ -1,10 +1,14 @@
 // ==UserScript==
-// @name         javbus&everything&potplayer启动本地播放
-// @match        https://www.javbus.com/*
-// @match        http://127.0.0.1:80/*
-// @grant        GM_xmlhttpRequest
-// @connect      127.0.0.1
-// @version      2026.5.26
+// @name        javbus&everything&potplayer启动本地播放
+// @namespace   https://github.com/hawwk1024/javbus-everything-potplayer
+// @description 在JAVBus页面显示本地播放按钮，点击后通过PotPlayer打开本地文件（需要Everything配合）。同时支持在Everything搜索结果页自动打开PotPlayer。使用HTTP接口，兼容性更好。
+// @author      Hawwk
+// @match       https://www.javbus.com/*
+// @match       http://127.0.0.1:80/*
+// @grant       GM_xmlhttpRequest
+// @connect     127.0.0.1
+// @version     2026.5.26
+// @icon        https://www.javbus.com/favicon.ico
 // ==/UserScript==
 
 (function() {
@@ -12,23 +16,10 @@
 
     // ==================== JAVBus 页面逻辑 ====================
     if (window.location.hostname === 'www.javbus.com') {
-        const CONFIG = {
-            width: 120,
-            height: 44,
-            right: 20,
-            bottom: 80,
-            backgroundColor: '#27ae60',
-            missingColor: '#e67e22',
-            color: 'white',
-            fontSize: 14,
-            borderRadius: 6,
-            opacity: 0.95
-        };
-
-        let floatingBtn = null;
         let currentCode = null;
-        let fileExistsCache = false;      // 缓存当前番号是否有文件
+        let fileExistsCache = false;
         let isChecking = false;
+        let navBtn = null;
 
         // 获取页面番号
         function getVideoCode() {
@@ -38,19 +29,22 @@
 
         // 更新按钮UI
         function updateButtonUI() {
-            if (!floatingBtn) return;
+            if (!navBtn) return;
+            const link = navBtn.querySelector('a');
+            if (!link) return;
+
             if (fileExistsCache) {
-                floatingBtn.innerText = "本地播放";
-                floatingBtn.style.backgroundColor = CONFIG.backgroundColor;
-                floatingBtn.title = "点击播放";
+                link.innerHTML = '🎬 本地播放';
+                link.style.color = '#27ae60';
+                navBtn.title = "点击播放";
             } else {
-                floatingBtn.innerText = "无本地文件";
-                floatingBtn.style.backgroundColor = CONFIG.missingColor;
-                floatingBtn.title = "Everything中未找到匹配文件";
+                link.innerHTML = '📁 无本地文件';
+                link.style.color = '#e67e22';
+                navBtn.title = "Everything中未找到匹配文件";
             }
         }
 
-        // 后台检测文件是否存在（异步，不阻塞UI）
+        // 后台检测文件是否存在
         function checkFileInBackground(code) {
             if (!code || isChecking) return;
 
@@ -61,7 +55,7 @@
             GM_xmlhttpRequest({
                 method: 'GET',
                 url: apiUrl,
-                timeout: 1500,  // 超时1.5秒
+                timeout: 500,
                 onload: function(resp) {
                     try {
                         const data = JSON.parse(resp.responseText);
@@ -85,129 +79,80 @@
             });
         }
 
-        // 刷新番号状态（当番号变化时调用）
+        // 刷新番号状态
         function refreshStatus() {
             const code = getVideoCode();
             if (!code) {
-                if (floatingBtn) floatingBtn.style.display = 'none';
+                if (navBtn) navBtn.style.display = 'none';
                 return;
             }
-            if (floatingBtn) floatingBtn.style.display = 'flex';
+            if (navBtn) navBtn.style.display = '';
 
             if (currentCode !== code) {
                 currentCode = code;
-                // 先显示"检测中..."（可选，为了更好的反馈）
-                if (floatingBtn) {
-                    floatingBtn.innerText = "检测中...";
-                    floatingBtn.style.backgroundColor = CONFIG.missingColor;
+                if (navBtn) {
+                    const link = navBtn.querySelector('a');
+                    if (link) {
+                        link.innerHTML = '⏳ 检测中...';
+                        link.style.color = '#888';
+                    }
                 }
-                // 立即开始后台检测
                 checkFileInBackground(code);
             }
         }
 
-        // 创建浮动按钮
-        function createFloatingButton() {
-            if (document.getElementById('my-play-btn')) return;
+        // 在导航栏插入按钮（放在三横菜单的右边）
+        function insertNavButton() {
+            // 检查是否已存在
+            if (document.getElementById('javbus-everything-btn')) return;
 
-            const btn = document.createElement("button");
-            btn.id = 'my-play-btn';
-            btn.innerText = "检测中...";
+            // 找到三横菜单所在的 li
+            const hamburgerLi = document.querySelector('li.dropdown > a > span.glyphicon-menu-hamburger');
+            if (!hamburgerLi) {
+                setTimeout(insertNavButton, 500);
+                return;
+            }
 
-            let savedRight = localStorage.getItem('javbus_btn_right');
-            let savedBottom = localStorage.getItem('javbus_btn_bottom');
-            let currentRight = savedRight !== null ? parseInt(savedRight) : CONFIG.right;
-            let currentBottom = savedBottom !== null ? parseInt(savedBottom) : CONFIG.bottom;
+            const hamburgerParentLi = hamburgerLi.closest('li.dropdown');
+            if (!hamburgerParentLi) {
+                setTimeout(insertNavButton, 500);
+                return;
+            }
 
-            btn.style.cssText = `
-                position: fixed;
-                z-index: 999999;
-                width: ${CONFIG.width}px;
-                height: ${CONFIG.height}px;
-                right: ${currentRight}px;
-                bottom: ${currentBottom}px;
-                background: ${CONFIG.backgroundColor};
-                color: ${CONFIG.color};
-                border: none;
-                border-radius: ${CONFIG.borderRadius}px;
-                cursor: grab;
-                font-weight: bold;
-                font-size: ${CONFIG.fontSize}px;
-                text-align: center;
-                box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-                opacity: ${CONFIG.opacity};
-                transition: opacity 0.2s, background-color 0.2s;
-                font-family: Arial, sans-serif;
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                user-select: none;
-            `;
+            // 找到三横菜单所在的 ul
+            const parentUl = hamburgerParentLi.parentElement;
+            if (!parentUl) {
+                setTimeout(insertNavButton, 500);
+                return;
+            }
 
-            // 拖动逻辑
-            let isDragging = false;
-            let dragStartX = 0, dragStartY = 0;
-            let startRight = 0, startBottom = 0;
-            let hasMoved = false;
+            // 创建按钮容器
+            const li = document.createElement('li');
+            li.id = 'javbus-everything-btn';
+            li.className = 'dropdown';
+            li.style.cursor = 'pointer';
+            li.style.marginLeft = '10px';
 
-            const onDragStart = (e) => {
+            const a = document.createElement('a');
+            a.href = '#';
+            a.innerHTML = '🎬 检测中...';
+            a.style.color = '#27ae60';
+            a.style.textDecoration = 'none';
+            a.style.fontSize = '14px';
+            li.appendChild(a);
+
+            // 插入到三横菜单li的后面
+            if (hamburgerParentLi.nextSibling) {
+                parentUl.insertBefore(li, hamburgerParentLi.nextSibling);
+            } else {
+                parentUl.appendChild(li);
+            }
+
+            // 点击事件
+            li.addEventListener('click', (e) => {
                 e.preventDefault();
-                isDragging = true;
-                hasMoved = false;
-                btn.style.cursor = 'grabbing';
-                btn.style.transition = 'none';
-                const clientX = e.clientX ?? (e.touches ? e.touches[0].clientX : 0);
-                const clientY = e.clientY ?? (e.touches ? e.touches[0].clientY : 0);
-                dragStartX = clientX;
-                dragStartY = clientY;
-                const rect = btn.getBoundingClientRect();
-                startRight = window.innerWidth - rect.right;
-                startBottom = window.innerHeight - rect.bottom;
-            };
+                e.stopPropagation();
 
-            const onDragMove = (e) => {
-                if (!isDragging) return;
-                e.preventDefault();
-                const clientX = e.clientX ?? (e.touches ? e.touches[0].clientX : 0);
-                const clientY = e.clientY ?? (e.touches ? e.touches[0].clientY : 0);
-                const deltaX = clientX - dragStartX;
-                const deltaY = clientY - dragStartY;
-                if (Math.abs(deltaX) > 3 || Math.abs(deltaY) > 3) hasMoved = true;
-                let newRight = startRight - deltaX;
-                let newBottom = startBottom - deltaY;
-                newRight = Math.max(10, Math.min(window.innerWidth - CONFIG.width - 10, newRight));
-                newBottom = Math.max(10, Math.min(window.innerHeight - CONFIG.height - 10, newBottom));
-                btn.style.right = newRight + 'px';
-                btn.style.bottom = newBottom + 'px';
-            };
-
-            const onDragEnd = (e) => {
-                if (!isDragging) return;
-                isDragging = false;
-                btn.style.cursor = 'grab';
-                btn.style.transition = '';
-                if (hasMoved) {
-                    const currentRight = parseInt(btn.style.right);
-                    const currentBottom = parseInt(btn.style.bottom);
-                    localStorage.setItem('javbus_btn_right', currentRight);
-                    localStorage.setItem('javbus_btn_bottom', currentBottom);
-                    e.stopPropagation();
-                }
-            };
-
-            btn.addEventListener('mousedown', onDragStart);
-            window.addEventListener('mousemove', onDragMove);
-            window.addEventListener('mouseup', onDragEnd);
-            btn.addEventListener('touchstart', onDragStart, { passive: false });
-            window.addEventListener('touchmove', onDragMove, { passive: false });
-            window.addEventListener('touchend', onDragEnd);
-
-            // 点击事件 - 直接使用缓存，无延迟
-            btn.addEventListener('click', (e) => {
-                if (hasMoved) {
-                    hasMoved = false;
-                    return;
-                }
                 const code = getVideoCode();
                 if (!code) {
                     alert("未找到番号！");
@@ -219,28 +164,29 @@
                     return;
                 }
 
-                // 有文件，立即打开 Everything 页面
                 window.open(`http://127.0.0.1:80/?search=${encodeURIComponent(code + ' .mp4')}`, "_blank");
             });
 
-            document.body.appendChild(btn);
-            floatingBtn = btn;
-
-            // 立即开始检测
+            navBtn = li;
             refreshStatus();
         }
 
-        // 监听页面变化，番号改变时自动重新检测
+        // 监听页面变化
         function initJavBus() {
-            createFloatingButton();
+            // 等待导航栏加载完成
+            const waitForNav = setInterval(() => {
+                if (document.querySelector('li.dropdown > a > span.glyphicon-menu-hamburger')) {
+                    clearInterval(waitForNav);
+                    insertNavButton();
+                }
+            }, 100);
 
-            // 监听DOM变化，检测番号区域是否改变
+            // 监听DOM变化，番号改变时重新检测
             const observer = new MutationObserver(() => {
+                refreshStatus();
                 // 确保按钮存在
-                if (!document.getElementById('my-play-btn')) {
-                    createFloatingButton();
-                } else {
-                    refreshStatus();
+                if (!document.getElementById('javbus-everything-btn')) {
+                    insertNavButton();
                 }
             });
             observer.observe(document.body, { childList: true, subtree: true });
