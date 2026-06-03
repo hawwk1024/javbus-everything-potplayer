@@ -1,112 +1,117 @@
-# JAVBus & Everything 本地播放联动脚本
+# JavBus Local Helper
 
-Greasy Fork: 等待发布
-License: MIT
-JavaScript: ES6+
+> 在 JAVBus 页面检测本地视频文件，一键通过 PotPlayer 播放（via Everything）
 
-> 在 JAVBus 页面添加浮动按钮，通过 Everything JSON API 快速检测本地文件，一键调用 PotPlayer 播放。
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
+[![JavaScript](https://img.shields.io/badge/JavaScript-ES6%2B-brightgreen)]()
 
-## 功能特点
+## 功能
 
-- 智能番号识别 - 自动提取页面番号，支持 SPA 页面切换
-- 快速检测 - 通过 Everything JSON API 查询，超时 1.5 秒
-- 状态可视化 - 绿色=有文件 / 橙色=无文件
-- 按钮可拖动 - 鼠标/触摸拖动，位置自动保存
-- 一键播放 - 点击即可调用 PotPlayer 播放
+### 详情页 — 导航栏按钮
+- 自动提取番号，检测本地视频文件（8 种格式）
+- 🟢 **绿色** = 有本地文件 / 🟠 **橙色** = 无本地文件
+- 鼠标悬浮显示上次播放时间
+- 点击调用所选播放器直接播放（via Everything HTTP）
 
+### 星页 `/star/*` — 番号着色
+- 每个影片的番号文字直接着色，直观显示本地文件状态
+- 🟢 绿色 = 有文件 / 🟠 橙色 = 无文件
+- **点击绿色番号**直接播放
+- 检测进度实时显示：`🔍 检测中 5/10 🟢3 🟠2`
+
+### 批量导入索引
+- 油猴菜单 → **「📥 从Everything导入文件索引」**
+- 指定目录，批量建立番号缓存
+- 记住上次输入的目录路径
+- 进度可视化：`📥 导入中 60% · 60/100 · 已识别 15 个`
+
+### 播放器选择
+- 油猴菜单 → **「🎬 选择播放器」**，支持 PotPlayer / VLC / MPC-HC / 系统默认
+- 选择后记住，所有播放走同一协议
+
+### 油猴菜单
+| 菜单项 | 功能 |
+|---|---|
+| 🎬 选择播放器 | 切换 PotPlayer / VLC / MPC-HC / 系统默认 |
+| 🗑️ 清空播放记录缓存 | 清除所有番号的上次打开时间 |
+| 🔄 清空文件检测缓存 | 清除文件存在缓存，下次重新检测 |
+| 📥 从Everything导入文件索引 | 按目录批量导入番号索引 |
 
 ## 使用前提
 
-### 1. Everything 配置
+### Everything
+- [下载 Everything](https://www.voidtools.com/zh-cn/downloads/)
+- 工具 → 选项 → HTTP 服务器 → 启用 → 端口 80
 
-- 下载安装 Everything: https://www.voidtools.com/zh-cn/downloads/
-- 打开 Everything → 工具 → 选项 → HTTP 服务器
-- 勾选「启用 HTTP 服务器」
-- 端口保持默认 80
-- 点击确定
+### PotPlayer
+- [下载 PotPlayer](https://potplayer.daum.net/)
+- 安装后自动注册 `potplayer://` 协议
 
-### 2. 视频文件命名规范
-
-- 文件名必须包含番号
-- 文件格式为 .mp4
-- 示例：SSIS-123.mp4、[FHD]SSIS-123.mp4
-
-### 3. PotPlayer 安装
-
-- PotPlayer 官网下载: https://potplayer.daum.net/
-- 安装后自动注册 potplayer:// 协议，无需额外配置
+### 视频文件命名
+- 文件名需包含番号（如 `SSIS-123.mp4`）
+- 支持格式：mp4 / mkv / avi / mov / wmv / flv / webm / m4v
 
 ## 使用方法
 
-1. 访问 https://www.javbus.com 任意影片详情页
-2. 右下角出现浮动按钮，自动检测本地文件（约 0.5-1 秒）
-3. 按钮显示状态：
-   - 绿色「本地播放」→ 点击即可播放
-   - 橙色「无本地文件」→ 提示未找到文件
-4. 按钮可随意拖动，位置自动保存
+### 详情页
+1. 访问任意影片详情页
+2. 导航栏右侧出现状态按钮，自动检测
+3. 绿色按钮 → 点击播放
 
-## 技术实现
+### 星页
+1. 访问演员页面 `/star/*`
+2. 每个影片的番号自动着色
+3. 点击绿色番号 → 直接播放
 
-脚本流程：
+### 首次使用建议
+1. 打开 Everything，确认 HTTP 服务已启用
+2. 油猴菜单 → **「🎬 选择播放器」**，选择你的播放器
+3. 油猴菜单 → **「📥 从Everything导入文件索引」**，输入视频目录（如 `D:\JAV`）
+4. 等待导入完成，之后星页秒开全绿
 
-JAVBus 页面
-    |
-    ├─ 提取番号
-    ├─ 调用 Everything JSON API
-    │       └─ http://127.0.0.1:80/?json=1&search=番号+.mp4
-    ├─ 解析结果，缓存状态
-    └─ 用户点击 → 打开 Everything 搜索页
+## 优先级规则
 
-Everything 页面 (127.0.0.1)
-    |
-    ├─ 解析番号
-    ├─ 查找 .mp4 链接
-    └─ 调用 potplayer:// 协议 → PotPlayer 播放
+匹配到多个视频文件时：
+1. 优先文件名含 `ch`（不区分大小写，如 `SSIS-123-ch1.mp4`）
+2. 同优先级内选体积最大的
 
-使用的 API：
-- Everything HTTP JSON API: http://127.0.0.1:80/?json=1&search=xxx
-- PotPlayer 协议: potplayer://http://127.0.0.1/视频路径
+## FAQ
 
-## 常见问题
+**Q: 点击提示「无法连接 Everything」**
+> 检查 Everything HTTP 服务是否已启用（任务栏右键 Everything → 选项 → HTTP 服务器）
 
-Q: 点击按钮提示「无法连接 Everything」
-A: 检查 Everything 是否开启 HTTP 服务，任务栏右键 Everything → 选项 → HTTP 服务器 → 启用
+**Q: 明明有文件却显示橙色**
+> 确认文件名包含完整番号，Everything 中手动搜索 `番号 ext:mp4;mkv` 验证
 
-Q: 明明有文件，却提示「无本地文件」
-A: 
-- 确认文件名包含番号且以 .mp4 结尾
-- Everything 中手动搜索「番号 .mp4」看是否有结果
-- 检查 Everything 索引路径：工具 → 选项 → 索引 → 文件夹 → 添加视频文件夹
+**Q: 端口不是 80**
+> 修改脚本中所有 `localhost:80` 为你的端口号
 
-Q: 按钮拖到了屏幕外，找不到了
-A: 浏览器控制台执行：
-   localStorage.removeItem('javbus_btn_right');
-   localStorage.removeItem('javbus_btn_bottom');
-   location.reload();
-
-Q: 能否支持其他播放器？
-A: 可以，修改脚本中的 potplayer:// 为其他播放器协议：
-   - VLC: vlc://
-   - MPC-HC: mpc://
-   - IINA (Mac): iina://
-
-Q: Everything 端口不是 80
-A: 修改脚本中的端口号，将 80 改为你的端口
+**Q: 如何清理缓存**
+> 油猴菜单 → `🔄 清空文件检测缓存`
 
 ## 更新日志
 
-v0.1 (2026.5.26)
-- 首次正式发布
-- 支持 JAVBus 番号自动识别
-- 支持 Everything JSON API 快速检测
-- 支持按钮拖动与位置记忆
-- 支持 PotPlayer 一键播放
-- 文件状态可视化（绿/橙双色）
-- 支持 SPA 页面自动切换检测
+### v0.4 (2026.06.08)
+- 重命名：JavBus Local Helper（via Everything）
+- 新增星页 `/star/*` 支持：番号着色 + 点击直接播放
+- 详情页按钮改为直接播放（不再打开 Everything 搜索页）
+- 新增 Everything 批量导入索引（目录过滤、进度可视化、路径记忆）
+- 新增播放器选择（PotPlayer / VLC / MPC-HC / 系统默认）
+- 星页检测进度实时显示
+
+### v0.3 (2026.06.04)
+- 文件缓存 + 自动验证机制
+- 上次打开时间记录、油猴缓存管理菜单
+
+### v0.2 (2026.06.03)
+- 8 种视频格式、智能优先级（ch 优先 → 体积最大）
+- HTML 解析获取正确 HTTP 路径
+
+### v0.1 (2026.05.26)
+- 首次发布：番号识别、Everything API 检测、PotPlayer 播放
 
 ## 相关链接
 
-- Everything 下载: https://www.voidtools.com/zh-cn/downloads/
-- PotPlayer 下载: https://potplayer.daum.net/
-- Tampermonkey 下载: https://www.tampermonkey.net/
-- Greasy Fork 页面: 等待发布
+- [Everything](https://www.voidtools.com/)
+- [PotPlayer](https://potplayer.daum.net/)
+- [Tampermonkey](https://www.tampermonkey.net/)
